@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<title>Shelf – DVD &amp; Blu-ray collection</title>
+<style>
+:root{--bg:#e9edf2;--card:#fff;--ink:#141b26;--mut:#5b6678;--line:#d3dae4;--blu:#1f5eff;--dvd:#7b8699;--warn:#b45309;--warnbg:#fff3e0;--r:10px}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#0f141c;--card:#19212d;--ink:#e8edf5;--mut:#9aa6b8;--line:#2a3445;--blu:#6c93ff;--dvd:#8e99ad;--warn:#f5b461;--warnbg:#3a2a12}}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:16px/1.45 "Avenir Next","Segoe UI",system-ui,sans-serif;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom)}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer;border:1px solid var(--line);background:var(--card);border-radius:var(--r);padding:.55rem .9rem;min-height:44px}
+button.p{background:var(--blu);border-color:var(--blu);color:#fff;font-weight:600}
+button.d{color:#c0392b}
+:focus-visible{outline:3px solid var(--blu);outline-offset:2px}
+input,select{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:.55rem .7rem;min-height:44px;width:100%}
+header{display:flex;align-items:center;gap:.6rem;padding:1rem 1rem .4rem;flex-wrap:wrap}
+h1{font-size:1.6rem;margin:0;letter-spacing:-.02em;flex:1}
+h1 small{display:block;font-size:.85rem;font-weight:400;color:var(--mut);letter-spacing:0}
+.bar{display:grid;grid-template-columns:1fr auto auto;gap:.5rem;padding:.4rem 1rem 1rem;position:sticky;top:0;background:var(--bg);z-index:2}
+.bar select{width:auto}
+.bar #q{grid-column:1/-1}
+main{padding:0 1rem 2rem;max-width:1200px;margin:auto}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:.9rem}
+.c{background:var(--card);border-radius:var(--r);overflow:hidden;text-align:left;padding:0;border:1px solid var(--line);display:flex;flex-direction:column;border-top:4px solid var(--dvd)}
+.c.bd{border-top-color:var(--blu)}
+.c img,.ph{width:100%;aspect-ratio:2/3;object-fit:cover;background:var(--line);display:block}
+.ph{display:grid;place-items:center;color:var(--mut);padding:.5rem;text-align:center;font-size:.85rem}
+.c b{display:block;font-size:.88rem;padding:.45rem .55rem 0;line-height:1.25}
+.c span{padding:0 .55rem .5rem;font-size:.78rem;color:var(--mut)}
+.empty{text-align:center;color:var(--mut);padding:3rem 1rem}
+.more{display:block;margin:1.2rem auto 0}
+dialog{border:0;border-radius:14px;background:var(--card);color:var(--ink);width:min(560px,94vw);max-height:90vh;padding:1.1rem;box-shadow:0 12px 40px rgba(0,0,0,.35)}
+dialog::backdrop{background:rgba(5,10,20,.6)}
+dialog h2{margin:0 0 .6rem;font-size:1.2rem}
+.row{display:flex;gap:.5rem;margin-top:.7rem;flex-wrap:wrap}
+.row>*{flex:1}
+video{width:100%;border-radius:var(--r);background:#000;aspect-ratio:4/3;object-fit:cover}
+.flag{background:var(--warnbg);color:var(--warn);border-radius:var(--r);padding:.6rem .8rem;margin-bottom:.7rem;font-weight:600}
+.st{color:var(--mut);margin:.5rem 0;font-size:.92rem}
+.res{display:flex;gap:.7rem;align-items:center;width:100%;text-align:left;margin-top:.45rem}
+.res img,.res .ph{width:44px;aspect-ratio:2/3;flex:none;border-radius:4px;padding:0}
+.det{display:grid;grid-template-columns:110px 1fr;gap:.9rem}
+.det img,.det .ph{border-radius:8px}
+.det h2{margin:0}
+.meta{color:var(--mut);font-size:.9rem}
+.plot{margin:.8rem 0 0;max-height:32vh;overflow:auto}
+.toast{position:fixed;left:50%;bottom:calc(1.2rem + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:.7rem 1.1rem;border-radius:99px;z-index:50;display:none;max-width:90vw}
+label.btn{display:flex;align-items:center;justify-content:center;border:1px solid var(--line);border-radius:var(--r);min-height:44px;cursor:pointer}
+@media (max-width:420px){.det{grid-template-columns:90px 1fr}}
+</style>
+</head>
+<body>
+<header>
+  <h1>Shelf<small id="count">0 titles</small></h1>
+  <button class="p" id="bScan">Scan</button>
+  <button id="bAdd">Add by title</button>
+  <button id="bSet" aria-label="Settings and backup">Settings</button>
+</header>
+<div class="bar">
+  <input id="q" type="search" placeholder="Search title, genre or year" aria-label="Search collection">
+  <select id="sort" aria-label="Sort by">
+    <option value="title">Title</option><option value="rating">Rating</option>
+    <option value="genre">Genre</option><option value="year">Year</option>
+  </select>
+  <button id="dir" aria-label="Reverse sort order">A–Z</button>
+</div>
+<main><div id="grid" class="grid"></div><div id="empty" class="empty" hidden>Your shelf is empty. Tap Scan to add your first disc.</div><button class="more" id="more" hidden>Show more</button></main>
+
+<dialog id="scan">
+  <h2>Scan a disc</h2>
+  <video id="vid" playsinline muted></video>
+  <p class="st" id="sstat"></p>
+  <div class="row">
+    <label class="btn">Take photo of case<input id="photo" type="file" accept="image/*" capture="environment" hidden></label>
+  </div>
+  <div class="row"><input id="num" inputmode="numeric" placeholder="Or type the barcode number"><button id="go">Look up</button></div>
+  <div class="row"><button id="scClose">Close</button></div>
+</dialog>
+
+<dialog id="match">
+  <h2>Find the title</h2>
+  <p class="st" id="mstat"></p>
+  <div class="row"><input id="mq" placeholder="Movie title"><button class="p" id="mgo" style="flex:none">Search</button></div>
+  <div class="row"><select id="mf" aria-label="Format"><option>DVD</option><option>Blu-ray</option><option>4K UHD</option></select></div>
+  <div id="mres"></div>
+  <div class="row"><button id="mClose">Cancel</button></div>
+</dialog>
+
+<dialog id="det"><div id="detBody"></div></dialog>
+
+<dialog id="set">
+  <h2>Settings</h2>
+  <p class="st">Cover art, synopsis, rating and genre come from OMDb, which serves IMDb data. Get a free key at omdbapi.com.</p>
+  <input id="key" placeholder="OMDb API key" autocomplete="off">
+  <div class="row"><button class="p" id="keySave">Save key</button></div>
+  <h2 style="margin-top:1.2rem">Backup</h2>
+  <p class="st" id="sinfo"></p>
+  <div class="row"><button id="exp">Export backup</button><label class="btn">Import backup<input id="imp" type="file" accept=".json" hidden></label></div>
+  <div class="row"><button id="setClose">Close</button></div>
+</dialog>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const rq=r=>new Promise((ok,no)=>{r.onsuccess=()=>ok(r.result);r.onerror=()=>no(r.error)});
+let db,items=[],covers=new Map(),key='',ctx={},S={sort:'title',dir:1,q:'',limit:60};
+const st=(n,m='readonly')=>db.transaction(n,m).objectStore(n);
+const norm=c=>String(c).replace(/\D/g,'').replace(/^0+/,'');
+const FMT=['ean_13','upc_a','upc_e','ean_8'];
+
+function toast(m){const t=$('#toast');t.textContent=m;t.style.display='block';clearTimeout(toast.t);toast.t=setTimeout(()=>t.style.display='none',3200)}
+
+async function init(){
+  db=await new Promise((ok,no)=>{const r=indexedDB.open('shelf',1);
+    r.onupgradeneeded=()=>{const d=r.result,s=d.createObjectStore('items',{keyPath:'id',autoIncrement:true});
+      s.createIndex('barcode','barcode');s.createIndex('imdbId','imdbId');
+      d.createObjectStore('covers',{keyPath:'id'});d.createObjectStore('settings',{keyPath:'key'})};
+    r.onsuccess=()=>ok(r.result);r.onerror=()=>no(r.error)});
+  items=await rq(st('items').getAll());
+  (await rq(st('covers').getAll())).forEach(c=>covers.set(c.id,URL.createObjectURL(c.blob)));
+  const k=await rq(st('settings').get('omdb'));key=k?k.value:'';
+  try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch{}
+  render();
+}
+
+/* ---------- list ---------- */
+const tkey=t=>t.replace(/^(the|a|an)\s+/i,'').toLowerCase();
+function sorted(){
+  const q=S.q.trim().toLowerCase();
+  let a=q?items.filter(i=>(i.title+' '+i.genre+' '+i.year).toLowerCase().includes(q)):items.slice();
+  const byT=(x,y)=>tkey(x.title).localeCompare(tkey(y.title));
+  const f={title:byT,
+    genre:(x,y)=>(x.genre||'~').split(',')[0].localeCompare((y.genre||'~').split(',')[0])||byT(x,y),
+    year:(x,y)=>((x.year||0)-(y.year||0))||byT(x,y),
+    rating:(x,y)=>((x.rating??-1)-(y.rating??-1))||byT(x,y)}[S.sort];
+  a.sort((x,y)=>{
+    if(S.sort==='rating'&&((x.rating==null)!==(y.rating==null)))return x.rating==null?1:-1;
+    return f(x,y)*S.dir});
+  return a;
+}
+const cover=i=>covers.get(i.id)||(i.poster&&i.poster!=='N/A'?i.poster:'');
+function render(){
+  const a=sorted(),show=a.slice(0,S.limit);
+  $('#count').textContent=items.length+(items.length===1?' title':' titles')+(S.q?` · ${a.length} shown`:'');
+  $('#grid').innerHTML=show.map(i=>{const c=cover(i);
+    return `<button class="c ${i.format==='DVD'?'':'bd'}" data-id="${i.id}">${c?`<img loading="lazy" src="${esc(c)}" alt="">`:`<div class="ph">${esc(i.title)}</div>`}<b>${esc(i.title)}</b><span>${i.year||''} ${i.rating!=null?'· ★'+i.rating:''} ${esc(i.format)}</span></button>`}).join('');
+  $('#more').hidden=a.length<=S.limit;
+  $('#empty').hidden=items.length>0;
+  const L={title:['A–Z','Z–A'],genre:['A–Z','Z–A'],year:['Newest','Oldest'],rating:['Highest','Lowest']}[S.sort];
+  $('#dir').textContent=S.dir===1?(S.sort==='year'||S.sort==='rating'?L[1]:L[0]):(S.sort==='year'||S.sort==='rating'?L[0]:L[1]);
+}
+$('#grid').onclick=e=>{const b=e.target.closest('.c');if(b)showDetail(items.find(i=>i.id==b.dataset.id))};
+$('#more').onclick=()=>{S.limit+=60;render()};
+$('#q').oninput=e=>{S.q=e.target.value;S.limit=60;render()};
+$('#sort').onchange=e=>{S.sort=e.target.value;S.dir=(S.sort==='year'||S.sort==='rating')?-1:1;S.limit=60;render()};
+$('#dir').onclick=()=>{S.dir*=-1;render()};
+
+/* ---------- detail ---------- */
+function showDetail(i,flag){
+  const c=cover(i);
+  $('#detBody').innerHTML=`${flag?`<div class="flag">${esc(flag)}</div>`:''}
+  <div class="det">${c?`<img src="${esc(c)}" alt="Cover of ${esc(i.title)}">`:`<div class="ph">No cover</div>`}
+  <div><h2>${esc(i.title)}</h2><div class="meta">${i.year||'Year unknown'} · ${esc(i.format)}${i.rating!=null?' · ★ '+i.rating+' IMDb':''}</div>
+  <div class="meta">${esc(i.genre||'')}</div><div class="meta">${i.released&&i.released!=='N/A'?'Released '+esc(i.released):''}</div></div></div>
+  <p class="plot">${esc(i.plot&&i.plot!=='N/A'?i.plot:'No synopsis available.')}</p>
+  <div class="row"><button class="d" id="del">Remove</button><button class="p" id="dc">Close</button></div>`;
+  $('#dc').onclick=()=>$('#det').close();
+  $('#del').onclick=async()=>{if(!confirm('Remove “'+i.title+'” from your collection?'))return;
+    await rq(st('items','readwrite').delete(i.id));await rq(st('covers','readwrite').delete(i.id));
+    items=items.filter(x=>x.id!==i.id);covers.delete(i.id);$('#det').close();render();toast('Removed')};
+  if(!$('#det').open)$('#det').showModal();
+}
+
+/* ---------- scanning ---------- */
+let stream,tm,zx;
+const loadZX=()=>window.ZXing?Promise.resolve():new Promise((ok,no)=>{const s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js';s.onload=ok;s.onerror=no;document.head.appendChild(s)});
+async function startScan(){
+  $('#scan').showModal();$('#sstat').textContent='Point the camera at the barcode on the back of the case.';
+  try{
+    const v=$('#vid');
+    if('BarcodeDetector' in window){
+      const det=new BarcodeDetector({formats:FMT});
+      stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}});
+      v.srcObject=stream;await v.play();
+      const loop=async()=>{if(!stream)return;try{const r=await det.detect(v);if(r[0]){found(r[0].rawValue);return}}catch{}tm=setTimeout(loop,150)};loop();
+    }else{
+      await loadZX();zx=new ZXing.BrowserMultiFormatReader();
+      zx.decodeFromConstraints({video:{facingMode:'environment'}},v,r=>{if(r)found(r.getText())});
+    }
+  }catch{$('#sstat').textContent='Camera unavailable (it needs HTTPS and permission). Take a photo or type the number below.'}
+}
+function stopScan(){clearTimeout(tm);if(stream){stream.getTracks().forEach(t=>t.stop());stream=null}if(zx){try{zx.reset()}catch{}zx=null}$('#vid').srcObject=null}
+function found(c){stopScan();$('#scan').close();handleCode(c)}
+$('#bScan').onclick=startScan;
+$('#scan').addEventListener('close',stopScan);
+$('#scClose').onclick=()=>$('#scan').close();
+$('#go').onclick=()=>{const v=$('#num').value.trim();if(norm(v).length<6)return toast('Enter the full barcode number');$('#num').value='';$('#scan').close();handleCode(v)};
+$('#photo').onchange=async e=>{
+  const f=e.target.files[0];e.target.value='';if(!f)return;$('#scan').close();
+  let code=null;
+  try{
+    if('BarcodeDetector' in window){const r=await new BarcodeDetector({formats:FMT}).detect(await createImageBitmap(f));code=r[0]&&r[0].rawValue}
+    else{await loadZX();const u=URL.createObjectURL(f);code=(await new ZXing.BrowserMultiFormatReader().decodeFromImageUrl(u)).getText()}
+  }catch{}
+  if(code)return handleCode(code,f);
+  ctx={barcode:null,photo:f};openMatch('No barcode found in that photo. Search by title; your photo becomes the cover if no cover art is found.');
+};
+
+const clean=t=>t.replace(/[\[\(].*?[\]\)]/g,' ').replace(/\b(blu[- ]?ray|dvd|4k|ultra hd|uhd|widescreen|full screen|special edition|collector'?s edition|anniversary|combo pack|digital( copy| hd)?|steelbook|bd|region \w+|\d+[- ]disc|disc set|movie|film|\+.*$)\b/gi,' ').replace(/[-:–|,]+\s*$/,'').replace(/\s+/g,' ').trim();
+
+async function handleCode(raw,photo){
+  const code=norm(raw);
+  const ex=items.find(i=>i.barcode===code);
+  if(ex)return showDetail(ex,'Already in your collection (barcode '+raw+')');
+  ctx={barcode:code,photo};
+  openMatch('Looking up barcode '+raw+'…');$('#mq').value='';
+  let q='';
+  try{const r=await fetch('https://api.upcitemdb.com/prod/trial/lookup?upc='+encodeURIComponent(raw));const j=await r.json();q=clean((j.items&&j.items[0]&&j.items[0].title)||'')}catch{}
+  $('#mq').value=q;
+  if(q)search();else $('#mstat').textContent='No product found for that barcode. Search by title and the barcode will be linked to it.';
+}
+
+/* ---------- match & save ---------- */
+function openMatch(msg){$('#mstat').textContent=msg||'';$('#mres').innerHTML='';if(!$('#match').open)$('#match').showModal()}
+$('#bAdd').onclick=()=>{ctx={barcode:null};$('#mq').value='';openMatch('Search IMDb by title.')};
+$('#mClose').onclick=()=>$('#match').close();
+$('#mgo').onclick=search;
+$('#mq').onkeydown=e=>{if(e.key==='Enter')search()};
+async function omdb(p){const r=await fetch('https://www.omdbapi.com/?apikey='+encodeURIComponent(key)+'&'+p);return r.json()}
+async function search(){
+  const q=$('#mq').value.trim();if(!q)return;
+  if(!key){$('#mstat').textContent='Add your free OMDb key in Settings first.';return}
+  $('#mstat').textContent='Searching…';
+  try{
+    const j=await omdb('type=movie&s='+encodeURIComponent(q));
+    if(j.Response!=='True'){$('#mstat').textContent=(j.Error||'No matches')+'. Try a shorter title.';$('#mres').innerHTML='';return}
+    $('#mstat').textContent='Tap the right match.';
+    $('#mres').innerHTML=j.Search.slice(0,8).map(m=>`<button class="res" data-id="${esc(m.imdbID)}">${m.Poster!=='N/A'?`<img src="${esc(m.Poster)}" alt="">`:'<div class="ph"></div>'}<span><b>${esc(m.Title)}</b><br><small>${esc(m.Year)}</small></span></button>`).join('');
+  }catch{$('#mstat').textContent='Couldn’t reach OMDb. Check your connection and key.'}
+}
+$('#mres').onclick=e=>{const b=e.target.closest('.res');if(b)pick(b.dataset.id)};
+async function pick(id){
+  $('#mstat').textContent='Adding…';
+  try{
+    let ex=items.find(i=>i.imdbId===id);
+    if(ex){
+      if(ctx.barcode&&!ex.barcode){ex.barcode=ctx.barcode;await rq(st('items','readwrite').put(ex))}
+      $('#match').close();return showDetail(ex,'Already in your collection');
+    }
+    const d=await omdb('plot=full&i='+id);
+    if(d.Response!=='True')throw 0;
+    const it={imdbId:id,barcode:ctx.barcode||null,title:d.Title,year:parseInt(d.Year)||null,released:d.Released,
+      genre:d.Genre==='N/A'?'':d.Genre,plot:d.Plot,rating:isNaN(parseFloat(d.imdbRating))?null:parseFloat(d.imdbRating),
+      poster:d.Poster,format:$('#mf').value,added:Date.now()};
+    let blob=null;
+    if(d.Poster&&d.Poster!=='N/A'){try{const r=await fetch(d.Poster);if(r.ok)blob=await r.blob()}catch{}}
+    if(!blob&&ctx.photo)blob=ctx.photo;
+    it.id=await rq(st('items','readwrite').add(it));
+    if(blob){await rq(st('covers','readwrite').put({id:it.id,blob}));covers.set(it.id,URL.createObjectURL(blob))}
+    items.push(it);$('#match').close();render();toast('Added “'+it.title+'”');
+  }catch{$('#mstat').textContent='Couldn’t add that title. Try again.'}
+}
+
+/* ---------- settings & backup ---------- */
+$('#bSet').onclick=async()=>{
+  $('#key').value=key;
+  let p='';try{p=navigator.storage&&navigator.storage.persisted&&(await navigator.storage.persisted())?'Storage is marked persistent. ':'Storage may be cleared by the browser if space runs low; export backups regularly. '}catch{}
+  $('#sinfo').textContent=p+items.length+' titles saved on this device.';$('#set').showModal()};
+$('#setClose').onclick=()=>$('#set').close();
+$('#keySave').onclick=async()=>{key=$('#key').value.trim();await rq(st('settings','readwrite').put({key:'omdb',value:key}));toast('Key saved')};
+const b2d=b=>new Promise(ok=>{const r=new FileReader();r.onload=()=>ok(r.result);r.readAsDataURL(b)});
+$('#exp').onclick=async()=>{
+  toast('Preparing backup…');
+  const out=[];for(const i of items){const o={...i};const u=covers.get(i.id);if(u){try{o.cover=await b2d(await (await fetch(u)).blob())}catch{}}out.push(o)}
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(out)],{type:'application/json'}));
+  a.download='shelf-backup-'+new Date().toISOString().slice(0,10)+'.json';a.click();
+};
+$('#imp').onchange=async e=>{
+  const f=e.target.files[0];e.target.value='';if(!f)return;
+  try{
+    const list=JSON.parse(await f.text());let n=0;
+    for(const o of list){
+      if(items.some(i=>(o.imdbId&&i.imdbId===o.imdbId)||(o.barcode&&i.barcode===o.barcode)))continue;
+      const cv=o.cover;delete o.cover;delete o.id;
+      o.id=await rq(st('items','readwrite').add(o));
+      if(cv){const blob=await (await fetch(cv)).blob();await rq(st('covers','readwrite').put({id:o.id,blob}));covers.set(o.id,URL.createObjectURL(blob))}
+      items.push(o);n++;
+    }
+    render();toast('Imported '+n+' titles');
+  }catch{toast('That file isn’t a valid backup')}
+};
+init();
+</script>
+</body>
+</html>
